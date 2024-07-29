@@ -90,7 +90,10 @@ def proxy(path, max_items=MAX_ITEMS, mode=None, maxsize=None):
         print('text=', text)
         root = ET.fromstring(text.encode('utf-8'))
         for i in range(len(root[0])):
-            root[0][i] = fixup_item(root[0][i], path)
+            try:
+                root[0][i] = fixup_item(root[0][i], path)
+            except IndexError:
+                pass
         
         text = ET.tostring(root)
 
