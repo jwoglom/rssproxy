@@ -44,7 +44,12 @@ FEEDS = json.loads(os.getenv('FEEDS', '''{
 app = Flask(__name__)
 
 MAX_ITEMS = 50
-def proxy(path, max_items=MAX_ITEMS, mode=None, maxsize=None):
+def proxy(path, max_items=None, mode=None, maxsize=None):
+    if max_items is None:
+        max_items = MAX_ITEMS
+    if mode is None:
+        mode = 'lxml'
+
     logger.info('proxy(%s): start' % path)
     r = requests.get(path, timeout=10)
     logger.info('proxy(%s): fetched %d' % (path, r.status_code))
