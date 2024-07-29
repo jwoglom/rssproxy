@@ -87,7 +87,6 @@ def proxy(path, max_items=MAX_ITEMS, mode=None, maxsize=None):
             text = text[:text.rindex("</item>")] + "</item></channel></rss>"
 
         logger.info('proxy(%s): fixup start' % path)
-        print('text=', text)
         root = ET.fromstring(text.encode('utf-8'))
         for i in range(len(root[0])):
             try:
