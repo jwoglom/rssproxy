@@ -6,7 +6,7 @@ import logging
 import json
 import time
 import requests
-import xml.etree.ElementTree as ET
+from lxml import etree as ET
 
 from flask import Flask, Response, request, abort, redirect, jsonify
 
@@ -21,11 +21,12 @@ app = Flask(__name__)
 
 MAX_ITEMS = 50
 def proxy(path, max_items=MAX_ITEMS):
-    logger.info('fetching %s' % path)
+    logger.info('proxy(%s): start' % path)
     r = requests.get(path, timeout=10)
-    logger.info('proxy(%s): %d' % (path, r.status_code))
-    text = r.text
+    logger.info('proxy(%s): fetched %d' % (path, r.status_code))
+    text = r.text.encode('utf-8')
     root = ET.fromstring(text)
+    logger.info('proxy(%s): parsed len=%d ln=%d' % (path, len(text), len(root[0])))
 
     item_count = 0
     i = 0
@@ -43,8 +44,7 @@ def proxy(path, max_items=MAX_ITEMS):
 
 
     text = ET.tostring(root)
-    logger.info('proxy(%s): done')
-
+    logger.info('proxy(%s): done' % path)
     return Response(text, mimetype='application/xml; charset=utf-8')
 
 @app.route('/verge')

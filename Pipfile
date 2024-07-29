@@ -9,6 +9,7 @@ gunicorn = "*"
 prometheus-flask-exporter = "*"
 arrow = "*"
 flask = {extras = ["async"], version = "*"}
+lxml = "*"
 
 [dev-packages]
 
