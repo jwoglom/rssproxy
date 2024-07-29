@@ -11,6 +11,7 @@ import re
 import tempfile
 import hashlib
 import base64
+from urllib.parse import urlparse
 
 from flask import Flask, Response, request, abort, redirect, jsonify
 
@@ -118,7 +119,11 @@ def url_for_proxy(url, proxy_path):
             logger.info('allowing url_for_proxy %s' % url)
             f.write('%s\n' % en)
     
-    return '%s/proxy?pp=%s&en=%s' % (BASE_URL, pp, en)
+    ext = ''
+    urlpath = urlparse(url).path
+    if '.' in urlpath and (urlpath.rindex('.') or 0) >= (urlpath.rindex('/') or 0):
+        ext = urlpath[urlpath.rindex('.'):]
+    return '%s/proxy%s?pp=%s&en=%s' % (BASE_URL, ext, pp, en)
 
 def can_proxy_url(en, pp):
     fp = os.path.join(tmp, pp)
@@ -162,7 +167,8 @@ def build_proxy_resp(url, request_headers):
     return out
 
 @app.route('/proxy')
-def proxy_route():
+@app.route('/proxy.<path:ext>')
+def proxy_route(ext=None):
     pp = request.args.get('pp')
     furl = dec(pp)
     en = request.args.get('en')
