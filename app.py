@@ -45,6 +45,10 @@ def proxy(path, max_items=MAX_ITEMS, mode=None, maxsize=None):
         item_count = 0
         i = 0
         ln = len(root[0])
+        if ln == 0:
+            root = [root]
+            ln = len(root[0])
+
         while i < ln:
             if root[0][i].tag == 'item':
                 item_count += 1
@@ -58,6 +62,8 @@ def proxy(path, max_items=MAX_ITEMS, mode=None, maxsize=None):
                 i += 1
 
 
+        if type(root) == list:
+            root = root[0]
         text = ET.tostring(root)
     else:
         if mode == 'fast':
@@ -89,12 +95,19 @@ def proxy(path, max_items=MAX_ITEMS, mode=None, maxsize=None):
 
         logger.info('proxy(%s): fixup start' % path)
         root = ET.fromstring(text.encode('utf-8'))
+        ln = len(root[0])
+        if ln == 0:
+            root = [root]
+            ln = len(root[0])
+        
         for i in range(len(root[0])):
             try:
                 fixup_item(root[0][i], path)
             except IndexError:
                 pass
         
+        if type(root) == list:
+            root = root[0]
         text = ET.tostring(root)
 
     logger.info('proxy(%s): done' % path)
