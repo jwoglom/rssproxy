@@ -7,6 +7,8 @@ import json
 import time
 import requests
 from lxml import etree as ET
+from lxml.builder import ElementMaker as EM
+from lxml.builder import E as EB
 import re
 import tempfile
 import hashlib
@@ -125,9 +127,38 @@ def proxy(path, max_items=MAX_ITEMS, mode=None, maxsize=None):
     logger.info('proxy(%s): done' % path)
     return Response(text, mimetype='application/xml; charset=utf-8')
 
+ATOM = "{http://www.w3.org/2005/Atom}"
+CONTENT = "{http://purl.org/rss/1.0/modules/content/}"
+DC = "{http://purl.org/dc/elements/1.1/}"
 def atom_to_rss(root):
-    # todo
-    return root
+    E = EM(nsmap={
+        "atom": ATOM[1:-1], 
+        "content": CONTENT[1:-1],
+        "dc": DC[1:-1]
+    })
+    atom = EM(namespace=ATOM[1:-1])
+    content = EM(namespace=CONTENT[1:-1])
+    dc = EM(namespace=DC[1:-1])
+    groot = E.rss(
+        E.channel(
+            E.title(root.find(ATOM+"title").text),
+            E.image(
+                E.url(root.find(ATOM+"icon").text)
+            ),
+            *[
+                E.item(
+                    E.title(ent.find(ATOM+"title").text),
+                    E.link(ent.find(ATOM+"id").text if ent.find(ATOM+"id") else ent.find(ATOM+"link").attrib['href']),
+                    E.pubDate(arrow.get(ent.find(ATOM+"published").text).format()),
+                    dc.creator(ent.find(ATOM+"author").find(ATOM+"name").text),
+                    content.encoded(ent.find(ATOM+"content").text)
+                )
+                for ent in root.findall(ATOM+"entry")
+            ]
+        ),
+        {"version": "2.0"}
+    )
+    return groot
 
 def enc(x):
     return base64.b64encode(x.encode() if x else b'', b'-_').decode()
