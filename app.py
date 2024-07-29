@@ -133,36 +133,36 @@ def proxy(path, max_items=None, mode=None, maxsize=None):
     return Response(text, mimetype='application/xml; charset=utf-8')
 
 
-def fat(r, tag, orelse=None):
-    if r is None:
-        return None
-    a = getattr(r, 'find')(ATOM+tag)
-    if a:
-        return a.attrib
-    b = getattr(r, 'find')(tag)
-    if b:
-        return b.attrib
-    return orelse
-
 def ft(r, tag, orelse=''):
     if r is None:
-        return ''
-    a = getattr(r, 'find')(ATOM+tag)
-    if a:
-        return a.text
-    b = getattr(r, 'find')(tag)
-    if b:
-        return b.text
+        return orelse
+    a = r.find(ATOM + tag)
+    if a is not None and a.text:
+        return a.text.strip()
+    b = r.find(tag)
+    if b is not None and b.text:
+        return b.text.strip()
+    return orelse
+
+def fat(r, tag, orelse=None):
+    if r is None:
+        return orelse
+    a = r.find(ATOM + tag)
+    if a is not None:
+        return a.attrib
+    b = r.find(tag)
+    if b is not None:
+        return b.attrib
     return orelse
 
 def f(r, tag, orelse=None):
     if r is None:
-        return None
-    a = getattr(r, 'find')(ATOM+tag)
-    if a:
+        return orelse
+    a = r.find(ATOM + tag)
+    if a is not None:
         return a
-    b = getattr(r, 'find')(tag)
-    if b:
+    b = r.find(tag)
+    if b is not None:
         return b
     return orelse
 
@@ -178,25 +178,28 @@ def atom_to_rss(root):
     atom = EM(namespace=ATOM[1:-1])
     content = EM(namespace=CONTENT[1:-1])
     dc = EM(namespace=DC[1:-1])
-    groot = E.rss(
-        E.channel(
-            E.title(ft(root, "title")),
-            E.image(
-                E.url(ft(root, "icon"))
-            ),
-            *[
-                E.item(
-                    E.title(ft(ent, "title") or ''),
-                    E.link(ft(ent, "id") or fat(ent, "link", {}).get('href') or ''),
-                    E.pubDate(arrow.get(ft(ent, "published")).format() if ft(ent, "published") else ''),
-                    dc.creator(ft(f(ent, "author"), "name") or ''),
-                    content.encoded(ft(ent, "content") or '')
-                )
-                for ent in [*root.findall(ATOM+"entry"), *root.findall("entry")]
-            ]
-        ),
-        {"version": "2.0"}
-    )
+    
+    groot = E("rss", version="2.0")
+    channel = E("channel")
+    
+    channel.append(E("title", ft(root, "title")))
+    channel.append(E("link", ft(root, "link", orelse="")))
+    channel.append(E("description", ft(root, "subtitle", orelse="")))
+    channel.append(E("lastBuildDate", ft(root, "updated", orelse="")))
+    channel.append(E("language", root.get("{http://www.w3.org/XML/1998/namespace}lang", "")))
+
+    for entry in root.findall(ATOM + "entry"):
+        item = E("item")
+        item.append(E("title", ft(entry, "title")))
+        item.append(E("link", ft(entry, "id", orelse=fat(entry, "link", {}).get('href', ''))))
+        item.append(E("pubDate", arrow.get(ft(entry, "published")).format() if ft(entry, "published") else ''))
+        item.append(E("description", ft(entry, "summary", orelse='')))
+        item.append(E("author", ft(f(entry, "author"), "name", orelse='')))
+        item.append(content("encoded", ft(entry, "content", orelse='')))
+
+        channel.append(item)
+    
+    groot.append(channel)
     return groot
 
 def enc(x):
@@ -244,18 +247,21 @@ def fixup_item(item, proxy_path):
                 item[i].attrib['url'] = url_for_proxy(it.attrib['url'], proxy_path)
         
         if it.tag.endswith('encoded') or it.tag.endswith('content'):
-            itt = it.text
-            ht = ET.fromstring(itt.encode('utf-8'), parser=ET.HTMLParser())
-            if ht:
-                ok = False
-
-                imgs = ht.findall('.//img')
-                for j, jt in enumerate(list(imgs)):
-                    imgs[j] = url_for_proxy(jt.attrib['href'], proxy_path)
-                    ok = True
+            try:
+                html_root = ET.Element("root")
+                html_root.append(ET.fromstring(it.text, parser=ET.HTMLParser()))
                 
+                ok = False
+                imgs = html_root.findall('.//img')
+                for img in imgs:
+                    if 'src' in img.attrib:
+                        img.attrib['src'] = url_for_proxy(img.attrib['src'], proxy_path)
+                        ok = True
+
                 if ok:
-                    it.text = ET.tostring(ht, parser=ET.HTMLParser())
+                    it.text = ''.join(ET.tostring(e, encoding='unicode') for e in html_root)
+            except ET.ParseError as e:
+                logger.error(f"Error parsing HTML content: {e}")
 
 
 
