@@ -21,8 +21,9 @@ app = Flask(__name__)
 
 MAX_ITEMS = 50
 def proxy(path, max_items=MAX_ITEMS):
-    r = requests.get(path)
-    print('proxy(%s): %d' % (path, r.status_code))
+    logger.info('fetching %s' % path)
+    r = requests.get(path, timeout=10)
+    logger.info('proxy(%s): %d' % (path, r.status_code))
     text = r.text
     root = ET.fromstring(text)
 
@@ -42,6 +43,7 @@ def proxy(path, max_items=MAX_ITEMS):
 
 
     text = ET.tostring(root)
+    logger.info('proxy(%s): done')
 
     return Response(text, mimetype='application/xml; charset=utf-8')
 
@@ -51,7 +53,7 @@ def verge():
 
 @app.route('/daily')
 def daily():
-    return proxy('http://feeds.simplecast.com/54nAGcIl')
+    return proxy('https://feeds.simplecast.com/54nAGcIl')
 
 @app.route('/healthz')
 def healthz_route():
