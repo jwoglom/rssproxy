@@ -64,7 +64,14 @@ def proxy(path, max_items=MAX_ITEMS, mode=None):
             if index:
                 text = text[:index] + "</channel></rss>"
     elif mode == 'fastest':
-        text = r.text[:50000]
+        i = 0
+        for chunk in r.iter_content(4096):
+            text += chunk
+            i += 4096
+
+            if i >= 50*1024:
+                break
+
         text = text[:text.rindex("</item>")] + "</channel></rss>"
 
     logger.info('proxy(%s): done' % path)
