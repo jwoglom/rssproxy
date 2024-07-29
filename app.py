@@ -51,7 +51,7 @@ def proxy(path, max_items=MAX_ITEMS, mode=None, maxsize=None):
                     del root[0][i]
                     ln = len(root[0])
                 else:
-                    root[0][i] = fixup_item(root[0][i], path)
+                    fixup_item(root[0][i], path)
                     i += 1
             else:
                 i += 1
@@ -90,7 +90,7 @@ def proxy(path, max_items=MAX_ITEMS, mode=None, maxsize=None):
         root = ET.fromstring(text.encode('utf-8'))
         for i in range(len(root[0])):
             try:
-                root[0][i] = fixup_item(root[0][i], path)
+                fixup_item(root[0][i], path)
             except IndexError:
                 pass
         
@@ -138,8 +138,7 @@ def fixup_item(item, proxy_path):
         if it.tag.endswith('thumbnail'):
             if 'url' in it.attrib:
                 item[i].attrib['url'] = url_for_proxy(it.attrib['url'], proxy_path)
-    
-    return item
+
 
 
 @app.route('/verge')
