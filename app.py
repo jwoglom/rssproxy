@@ -261,7 +261,7 @@ def fixup_item(item, proxy_path):
                 if ok:
                     it.text = ''.join(ET.tostring(e, encoding='unicode') for e in html_root)
             except ET.ParseError as e:
-                logger.error(f"Error parsing HTML content: {e}")
+                pass
 
 
 
