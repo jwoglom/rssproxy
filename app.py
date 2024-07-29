@@ -28,11 +28,13 @@ def proxy(path, max_items=MAX_ITEMS):
 
     item_count = 0
     i = 0
-    while i < len(root[0]):
+    ln = len(root[0])
+    while i < ln:
         if root[0][i].tag == 'item':
             item_count += 1
             if item_count >= max_items:
                 del root[0][i]
+                ln = len(root[0])
             else:
                 i += 1
         else:
