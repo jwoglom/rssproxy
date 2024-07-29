@@ -25,10 +25,11 @@ def proxy(path, max_items=MAX_ITEMS, mode=None):
     logger.info('proxy(%s): start' % path)
     r = requests.get(path, timeout=10)
     logger.info('proxy(%s): fetched %d' % (path, r.status_code))
-    text = r.text
 
+    text = ''
     logger.info('proxy(%s): mode %s' % (path, mode))
     if mode == 'lxml':
+        text = r.text
         root = ET.fromstring(text.encode('utf-8'))
         logger.info('proxy(%s): parsed len=%d ln=%d' % (path, len(text), len(root[0])))
 
@@ -49,9 +50,19 @@ def proxy(path, max_items=MAX_ITEMS, mode=None):
 
         text = ET.tostring(root)
     elif mode == 'fast':
-        indexes = [m.start() for m in re.finditer(r"<item>", text)]
-        if len(indexes) > max_items:
-            text = text[:indexes[max_items]] + "</channel></rss>"
+        text = r.text
+        if text.count("</item>") >= max_items:
+            def find_nth(s, x, n=0, overlap=False):
+                l = 1 if overlap else len(x)
+                i = -l
+                for c in range(n + 1):
+                    i = s.find(x, i + l)
+                    if i < 0:
+                        break
+                return i
+            index = find_nth(text, "</item>", max_items)
+            if index:
+                text = text[:index] + "</channel></rss>"
 
     logger.info('proxy(%s): done' % path)
     return Response(text, mimetype='application/xml; charset=utf-8')
