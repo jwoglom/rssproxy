@@ -38,6 +38,9 @@ FEEDS = json.loads(os.getenv('FEEDS', '''{
     "daily": {
         "url": "https://feeds.simplecast.com/54nAGcIl",
         "mode": "fastest"
+    },
+    "vox": {
+        "url": "https://www.vox.com/rss/index.xml"
     }
 }'''))
 
@@ -61,12 +64,14 @@ def proxy(path, max_items=None, mode=None, maxsize=None):
         root = ET.fromstring(text.encode('utf-8'))
         logger.info('proxy(%s): parsed len=%d ln=%d' % (path, len(text), len(root[0])))
 
+        print('root', root)
+
+        if root.tag.endswith('feed'):
+            root = atom_to_rss(root)
+
         item_count = 0
         i = 0
         ln = len(root[0])
-        if ln == 0:
-            root = [root]
-            ln = len(root[0])
 
         while i < ln:
             if root[0][i].tag == 'item':
@@ -80,9 +85,6 @@ def proxy(path, max_items=None, mode=None, maxsize=None):
             else:
                 i += 1
 
-
-        if type(root) == list:
-            root = atom_to_rss(root[0])
         text = ET.tostring(root)
     else:
         if mode == 'fast':
@@ -114,10 +116,10 @@ def proxy(path, max_items=None, mode=None, maxsize=None):
 
         logger.info('proxy(%s): fixup start' % path)
         root = ET.fromstring(text.encode('utf-8'))
+        if root.tag.endswith('feed'):
+            root = atom_to_rss(root)
+
         ln = len(root[0])
-        if ln == 0:
-            root = [root]
-            ln = len(root[0])
         
         for i in range(len(root[0])):
             try:
@@ -125,12 +127,44 @@ def proxy(path, max_items=None, mode=None, maxsize=None):
             except IndexError:
                 pass
         
-        if type(root) == list:
-            root = atom_to_rss(root[0])
         text = ET.tostring(root)
 
     logger.info('proxy(%s): done' % path)
     return Response(text, mimetype='application/xml; charset=utf-8')
+
+
+def fat(r, tag, orelse=None):
+    if r is None:
+        return None
+    a = getattr(r, 'find')(ATOM+tag)
+    if a:
+        return a.attrib
+    b = getattr(r, 'find')(tag)
+    if b:
+        return b.attrib
+    return orelse
+
+def ft(r, tag, orelse=''):
+    if r is None:
+        return ''
+    a = getattr(r, 'find')(ATOM+tag)
+    if a:
+        return a.text
+    b = getattr(r, 'find')(tag)
+    if b:
+        return b.text
+    return orelse
+
+def f(r, tag, orelse=None):
+    if r is None:
+        return None
+    a = getattr(r, 'find')(ATOM+tag)
+    if a:
+        return a
+    b = getattr(r, 'find')(tag)
+    if b:
+        return b
+    return orelse
 
 ATOM = "{http://www.w3.org/2005/Atom}"
 CONTENT = "{http://purl.org/rss/1.0/modules/content/}"
@@ -146,19 +180,19 @@ def atom_to_rss(root):
     dc = EM(namespace=DC[1:-1])
     groot = E.rss(
         E.channel(
-            E.title(root.find(ATOM+"title").text),
+            E.title(ft(root, "title")),
             E.image(
-                E.url(root.find(ATOM+"icon").text)
+                E.url(ft(root, "icon"))
             ),
             *[
                 E.item(
-                    E.title(ent.find(ATOM+"title").text),
-                    E.link(ent.find(ATOM+"id").text if ent.find(ATOM+"id") else ent.find(ATOM+"link").attrib['href']),
-                    E.pubDate(arrow.get(ent.find(ATOM+"published").text).format()),
-                    dc.creator(ent.find(ATOM+"author").find(ATOM+"name").text),
-                    content.encoded(ent.find(ATOM+"content").text)
+                    E.title(ft(ent, "title") or ''),
+                    E.link(ft(ent, "id") or fat(ent, "link", {}).get('href') or ''),
+                    E.pubDate(arrow.get(ft(ent, "published")).format() if ft(ent, "published") else ''),
+                    dc.creator(ft(f(ent, "author"), "name") or ''),
+                    content.encoded(ft(ent, "content") or '')
                 )
-                for ent in root.findall(ATOM+"entry")
+                for ent in [*root.findall(ATOM+"entry"), *root.findall("entry")]
             ]
         ),
         {"version": "2.0"}
@@ -208,6 +242,22 @@ def fixup_item(item, proxy_path):
         if it.tag.endswith('thumbnail'):
             if 'url' in it.attrib:
                 item[i].attrib['url'] = url_for_proxy(it.attrib['url'], proxy_path)
+        
+        if it.tag.endswith('encoded') or it.tag.endswith('content'):
+            itt = it.text
+            ht = ET.fromstring(itt.encode('utf-8'), parser=ET.HTMLParser())
+            if ht:
+                ok = False
+
+                imgs = ht.findall('.//img')
+                for j, jt in enumerate(list(imgs)):
+                    imgs[j] = url_for_proxy(jt.attrib['href'], proxy_path)
+                    ok = True
+                
+                if ok:
+                    it.text = ET.tostring(ht, parser=ET.HTMLParser())
+
+
 
 @app.route('/<path:feed>')
 def feed_route(feed):
