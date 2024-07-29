@@ -66,7 +66,7 @@ def proxy(path, max_items=MAX_ITEMS, mode=None):
     elif mode == 'fastest':
         i = 0
         for chunk in r.iter_content(4096):
-            text += chunk.encode('utf-8')
+            text += chunk.decode('utf-8')
             i += 4096
 
             if i >= 50*1024:
