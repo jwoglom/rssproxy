@@ -5,19 +5,10 @@ import arrow
 import logging
 import json
 import time
-import asyncio
 import requests
 import xml.etree.ElementTree as ET
 
 from flask import Flask, Response, request, abort, redirect, jsonify
-
-is_gunicorn = "gunicorn" in os.environ.get("SERVER_SOFTWARE", "")
-if is_gunicorn:
-    from prometheus_flask_exporter.multiprocess import GunicornInternalPrometheusMetrics as PrometheusMetrics
-else:
-    from prometheus_flask_exporter import PrometheusMetrics
-
-from prometheus_client import Counter, Gauge
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -27,8 +18,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-
-metrics = PrometheusMetrics(app)
 
 MAX_ITEMS = 50
 def proxy(path, max_items=MAX_ITEMS):
