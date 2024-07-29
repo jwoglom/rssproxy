@@ -171,7 +171,7 @@ def build_proxy_resp(url, request_headers):
 def proxy_route(ext=None):
     pp = request.args.get('pp')
     furl = dec(pp)
-    en = request.args.get('en')
+    en = request.args.get('en', request.args.get('amp;en'))
     url = dec(en)
 
     if can_proxy_url(en, pp):
