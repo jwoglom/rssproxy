@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 MAX_ITEMS = 50
-def proxy(path, max_items=MAX_ITEMS, mode=None):
+def proxy(path, max_items=MAX_ITEMS, mode=None, maxsize=None):
     logger.info('proxy(%s): start' % path)
     r = requests.get(path, timeout=10)
     logger.info('proxy(%s): fetched %d' % (path, r.status_code))
@@ -50,7 +50,8 @@ def proxy(path, max_items=MAX_ITEMS, mode=None):
 
         text = ET.tostring(root)
     elif mode == 'fast':
-        text = r.text[:200000]
+        maxsize = maxsize or 200000
+        text = r.text[:maxsize]
         if text.count("</item>") >= max_items:
             def find_nth(s, x, n=0, overlap=False):
                 l = 1 if overlap else len(x)
@@ -65,11 +66,12 @@ def proxy(path, max_items=MAX_ITEMS, mode=None):
                 text = text[:index] + "</channel></rss>"
     elif mode == 'fastest':
         i = 0
+        maxsize = maxsize or 50*4096
         for chunk in r.iter_content(4096):
             text += chunk.decode('utf-8')
             i += 4096
 
-            if i >= 50*4096:
+            if i >= maxsize:
                 break
 
         text = text[:text.rindex("</item>")] + "</channel></rss>"
@@ -79,11 +81,11 @@ def proxy(path, max_items=MAX_ITEMS, mode=None):
 
 @app.route('/verge')
 def verge():
-    return proxy('https://www.theverge.com/rss/full.xml', mode='lxml')
+    return proxy('https://www.theverge.com/rss/full.xml', mode='lxml', max_items=request.args.get('items', None))
 
 @app.route('/daily')
 def daily():
-    return proxy('https://feeds.simplecast.com/54nAGcIl', mode='fastest')
+    return proxy('https://feeds.simplecast.com/54nAGcIl', mode='fastest', maxsize=request.args.get('maxsize', None))
 
 @app.route('/healthz')
 def healthz_route():
