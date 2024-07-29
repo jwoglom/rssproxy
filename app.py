@@ -69,7 +69,7 @@ def proxy(path, max_items=MAX_ITEMS, mode=None):
             text += chunk.decode('utf-8')
             i += 4096
 
-            if i >= 50*1024:
+            if i >= 50*4096:
                 break
 
         text = text[:text.rindex("</item>")] + "</channel></rss>"
