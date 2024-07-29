@@ -26,6 +26,18 @@ if not os.path.exists(tmp):
     os.makedirs(tmp)
 
 BASE_URL = os.getenv('BASE_URL', '')
+FEEDS = json.loads(os.getenv('FEEDS', '''{
+    "verge": {
+        "url": "https://www.theverge.com/rss/full.xml"
+    },
+    "ars": {
+        "url": "https://feeds.arstechnica.com/arstechnica/index"
+    },
+    "daily": {
+        "url": "https://feeds.simplecast.com/54nAGcIl",
+        "mode": "fastest"
+    }
+}'''))
 
 app = Flask(__name__)
 
@@ -63,7 +75,7 @@ def proxy(path, max_items=MAX_ITEMS, mode=None, maxsize=None):
 
 
         if type(root) == list:
-            root = root[0]
+            root = atom_to_rss(root[0])
         text = ET.tostring(root)
     else:
         if mode == 'fast':
@@ -107,11 +119,15 @@ def proxy(path, max_items=MAX_ITEMS, mode=None, maxsize=None):
                 pass
         
         if type(root) == list:
-            root = root[0]
+            root = atom_to_rss(root[0])
         text = ET.tostring(root)
 
     logger.info('proxy(%s): done' % path)
     return Response(text, mimetype='application/xml; charset=utf-8')
+
+def atom_to_rss(root):
+    # todo
+    return root
 
 def enc(x):
     return base64.b64encode(x.encode() if x else b'', b'-_').decode()
@@ -157,15 +173,21 @@ def fixup_item(item, proxy_path):
             if 'url' in it.attrib:
                 item[i].attrib['url'] = url_for_proxy(it.attrib['url'], proxy_path)
 
+@app.route('/<path:feed>')
+def feed_route(feed):
+    if feed.endswith('.xml'):
+        feed = feed[:-4]
+    if feed.endswith('.rss'):
+        feed = feed[:-4]
 
+    if feed not in FEEDS.keys():
+        return abort(404, 'invalid feed: %s, expected one of: %s' % (feed, ','.join(FEEDS.keys())))
+    
+    url = FEEDS[feed]['url']
 
-@app.route('/verge')
-def verge():
-    return proxy('https://www.theverge.com/rss/full.xml', mode='lxml', max_items=request.args.get('items', None))
-
-@app.route('/daily')
-def daily():
-    return proxy('https://feeds.simplecast.com/54nAGcIl', mode='fastest', maxsize=request.args.get('maxsize', None))
+    return proxy(url, mode=FEEDS[feed].get('mode', 'lxml'), 
+                 max_items=request.args.get('items', FEEDS[feed].get('items')), 
+                 maxsize=request.args.get('maxsize', FEEDS[feed].get('maxsize')))
 
 def build_proxy_resp(url, request_headers):
     send_headers = dict(request_headers)
