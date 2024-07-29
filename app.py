@@ -50,7 +50,7 @@ def proxy(path, max_items=MAX_ITEMS, mode=None):
 
         text = ET.tostring(root)
     elif mode == 'fast':
-        text = r.text
+        text = r.text[:200000]
         if text.count("</item>") >= max_items:
             def find_nth(s, x, n=0, overlap=False):
                 l = 1 if overlap else len(x)
@@ -63,6 +63,9 @@ def proxy(path, max_items=MAX_ITEMS, mode=None):
             index = find_nth(text, "</item>", max_items)
             if index:
                 text = text[:index] + "</channel></rss>"
+    elif mode == 'fastest':
+        text = r.text[:50000]
+        text = text[:text.rindex("</item>")] + "</channel></rss>"
 
     logger.info('proxy(%s): done' % path)
     return Response(text, mimetype='application/xml; charset=utf-8')
@@ -73,7 +76,7 @@ def verge():
 
 @app.route('/daily')
 def daily():
-    return proxy('https://feeds.simplecast.com/54nAGcIl', mode='fast')
+    return proxy('https://feeds.simplecast.com/54nAGcIl', mode='fastest')
 
 @app.route('/healthz')
 def healthz_route():
