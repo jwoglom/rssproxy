@@ -253,6 +253,10 @@ def fixup_item(item, proxy_path):
         if it.tag.endswith('thumbnail'):
             if 'url' in it.attrib:
                 item[i].attrib['url'] = url_for_proxy(it.attrib['url'], proxy_path, title)
+
+        if it.tag.endswith('}image'):
+            if 'href' in it.attrib:
+                item[i].attrib['href'] = url_for_proxy(it.attrib['href'], proxy_path, title)
         
         if it.tag.endswith('encoded') or it.tag.endswith('content'):
             try:
