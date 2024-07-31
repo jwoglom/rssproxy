@@ -242,7 +242,7 @@ def can_proxy_url(en, pp):
 def fixup_item(item, proxy_path):
     title = None
     for i, it in enumerate(list(item)):
-        if it.tag == 'title' or it.tag.endswith('title'):
+        if it.tag == 'title' or it.tag.endswith('}title'):
             title = it.text
 
     for i, it in enumerate(list(item)):
