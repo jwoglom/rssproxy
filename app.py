@@ -86,6 +86,8 @@ def proxy(path, max_items=None, mode=None, maxsize=None):
             else:
                 i += 1
 
+        fixup_item(root[0], path)
+
         text = ET.tostring(root)
     else:
         if mode == 'fast':
@@ -127,7 +129,9 @@ def proxy(path, max_items=None, mode=None, maxsize=None):
                 fixup_item(root[0][i], path)
             except IndexError:
                 pass
-        
+
+        fixup_item(root[0], path)
+
         text = ET.tostring(root)
 
     logger.info('proxy(%s): done' % path)
