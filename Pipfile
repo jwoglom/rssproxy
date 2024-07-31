@@ -10,6 +10,7 @@ prometheus-flask-exporter = "*"
 arrow = "*"
 flask = {extras = ["async"], version = "*"}
 lxml = "*"
+python-slugify = "*"
 
 [dev-packages]
 

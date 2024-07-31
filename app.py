@@ -14,6 +14,7 @@ import tempfile
 import hashlib
 import base64
 from urllib.parse import urlparse
+from slugify import slugify
 
 from flask import Flask, Response, request, abort, redirect, jsonify
 
@@ -208,7 +209,7 @@ def enc(x):
 def dec(x):
     return base64.b64decode(x.encode() if x else b'', b'-_').decode()
 
-def url_for_proxy(url, proxy_path):
+def url_for_proxy(url, proxy_path, title):
     pp = enc(proxy_path)
     fp = os.path.join(tmp, pp)
     en = enc(url)
@@ -225,6 +226,8 @@ def url_for_proxy(url, proxy_path):
     urlpath = urlparse(url).path
     if '.' in urlpath and (urlpath.rindex('.') or 0) >= (urlpath.rindex('/') or 0):
         ext = urlpath[urlpath.rindex('.'):]
+    if title:
+        ext = '_%s%s' % (slugify(title, separator='_'), ext)
     return '%s/proxy%s?pp=%s&en=%s' % (BASE_URL, ext, pp, en)
 
 def can_proxy_url(en, pp):
@@ -237,14 +240,19 @@ def can_proxy_url(en, pp):
     
 
 def fixup_item(item, proxy_path):
+    title = None
+    for i, it in enumerate(list(item)):
+        if it.tag == 'title' or it.tag.endswith('title'):
+            title = it.text
+
     for i, it in enumerate(list(item)):
         if it.tag == 'enclosure':
             if 'url' in it.attrib:
-                item[i].attrib['url'] = url_for_proxy(it.attrib['url'], proxy_path)
+                item[i].attrib['url'] = url_for_proxy(it.attrib['url'], proxy_path, title)
 
         if it.tag.endswith('thumbnail'):
             if 'url' in it.attrib:
-                item[i].attrib['url'] = url_for_proxy(it.attrib['url'], proxy_path)
+                item[i].attrib['url'] = url_for_proxy(it.attrib['url'], proxy_path, title)
         
         if it.tag.endswith('encoded') or it.tag.endswith('content'):
             try:
@@ -255,7 +263,7 @@ def fixup_item(item, proxy_path):
                 imgs = html_root.findall('.//img')
                 for img in imgs:
                     if 'src' in img.attrib:
-                        img.attrib['src'] = url_for_proxy(img.attrib['src'], proxy_path)
+                        img.attrib['src'] = url_for_proxy(img.attrib['src'], proxy_path, title)
                         ok = True
 
                 if ok:
@@ -296,7 +304,8 @@ def build_proxy_resp(url, request_headers):
 
 @app.route('/proxy')
 @app.route('/proxy.<path:ext>')
-def proxy_route(ext=None):
+@app.route('/proxy_<path:ign>.<path:ext>')
+def proxy_route(ign=None, ext=None):
     pp = request.args.get('pp')
     furl = dec(pp)
     en = request.args.get('en', request.args.get('amp;en'))
