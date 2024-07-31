@@ -254,15 +254,20 @@ def fixup_item(item, proxy_path):
             if 'url' in it.attrib:
                 item[i].attrib['url'] = url_for_proxy(it.attrib['url'], proxy_path, title)
 
-        if it.tag.endswith('thumbnail'):
+        if it.tag == 'thumbnail' or it.tag.endswith('thumbnail'):
             if 'url' in it.attrib:
                 item[i].attrib['url'] = url_for_proxy(it.attrib['url'], proxy_path, title)
 
-        if it.tag.endswith('}image'):
+        if it.tag == 'image' or it.tag.endswith('}image'):
             if 'href' in it.attrib:
                 item[i].attrib['href'] = url_for_proxy(it.attrib['href'], proxy_path, title)
+
+            for j, jt in enumerate(list(item[i])):
+                if jt.tag == 'url' or jt.tag.endswith('}url'):
+                    item[i][j].text = url_for_proxy(item[i][j].text, proxy_path, title)
+
         
-        if it.tag.endswith('encoded') or it.tag.endswith('content'):
+        if it.tag == 'encoded' or it.tag.endswith('}encoded') or it.tag == 'content' or it.tag.endswith('}content'):
             try:
                 html_root = ET.Element("root")
                 html_root.append(ET.fromstring(it.text, parser=ET.HTMLParser()))
